@@ -12,36 +12,43 @@ load_dotenv()
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://tudominio.com"],
+    allow_origins=["https://tudominio.com"],  # ¡IMPORTANTE! Ajusta esto al dominio exacto de tu WordPress
     allow_methods=["POST"],
     allow_headers=["*"],
 )
 
 class Payload(BaseModel):
-    imageBase66: str # Este nombre de variable se ajustará en el código cliente si es necesario
+    imageBase66: str
 
 @app.post("/api/editar-imagen")
 async def editar(payload: Payload):
     prompt = os.getenv("FLUX_PROMPT")
 
-    b66 = payload.imageBase66.strip() # Ajustado a imageBase66 según Payload
+    # EXTRAEMOS LA CADENA BASE64 PURA eliminando el prefijo
+    # Por ejemplo, de "data:image/png;base64,iVBORw0..." tomamos solo "iVBORw0..."
+    # Usamos .split(",", 1)[1] para dividir solo por la primera coma y tomar la segunda parte.
+    b66 = payload.imageBase66.split(",", 1)[1].strip()
+
+    # Asegura padding correcto del Base64 (esto es correcto y debe mantenerse)
     b66 += "=" * (-len(b66) % 4)
-    img_bytes = base64.b64decode(b66)
-
-    input_image_b66_prefixed = f"data:image/png;base66,{base64.b66encode(img_bytes).decode('utf-8')}" # Ajustado a imageBase66
-
+    
     try:
-        # ¡IMPORTANTE! Eliminamos el ID de versión específico.
-        # Ahora Replicate usará automáticamente la última versión del modelo 'pro'.
+        img_bytes = base64.b64decode(b66) # Ahora 'b66' solo contiene la cadena Base64 pura
+
+        # Replicate necesita la imagen de entrada en Base64 con el prefijo de tipo de dato
+        # Lo reconstruimos aquí con los bytes decodificados para asegurarnos de que sea correcto.
+        # Es importante que el formato (png/jpeg) sea el correcto. Asumimos png.
+        input_image_b66_prefixed = f"data:image/png;base64,{base64.b64encode(img_bytes).decode('utf-8')}"
+
         output_url = replicate.run(
-            "black-forest-labs/flux-kontext-pro", # ¡Aquí va solo el nombre del modelo!
+            "black-forest-labs/flux-kontext-pro",
             input={
                 "input_image": input_image_b66_prefixed,
                 "prompt": prompt,
                 "negative_prompt": "cartoon, painting, illustration, low quality, bad quality, ugly, blurry, deformed",
                 "aspect_ratio": "match_input_image",
                 "prompt_upsampling": False,
-                "output_format": "png" # Confirmado en los inputs de Replicate, mejor especificarlo.
+                "output_format": "png" 
             }
         )
         
@@ -49,7 +56,7 @@ async def editar(payload: Payload):
         response.raise_for_status()
         modified_image_bytes = response.content
 
-        mod_b66 = base64.b66encode(modified_image_bytes).decode("utf-8")
+        mod_b66 = base64.b64encode(modified_image_bytes).decode("utf-8")
         return {"modifiedImage": mod_b66}
 
     except Exception as e:
