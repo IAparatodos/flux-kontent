@@ -6,22 +6,18 @@ from huggingface_hub import InferenceClient
 from dotenv import load_dotenv
 import os, base64, io
 
-# Carga tus variables de entorno (.env o configuradas en App Platform)
-load_dotenv()
+load_dotenv()  # carga HF_TOKEN y FLUX_PROMPT desde .env o variables de entorno
 
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://tudominio.com"],  # pon aquí tu dominio WP
+    allow_origins=["https://tudominio.com"],  # ajusta al dominio de tu WordPress
     allow_methods=["POST"],
     allow_headers=["*"],
 )
 
-# Usamos la API de Hugging Face directamente, obligando al proveedor hf-inference
-hf = InferenceClient(
-    token=os.getenv("HF_TOKEN"),
-    provider="hf-inference"
-)
+# Sin provider: usa por defecto la API pública de Hugging Face que soporta image_to_image
+hf = InferenceClient(token=os.getenv("HF_TOKEN"))
 
 class Payload(BaseModel):
     imageBase64: str
@@ -50,5 +46,5 @@ async def editar(payload: Payload):
         return {"modifiedImage": mod_b64}
 
     except Exception as e:
-        # Devuelve el error real para depuración
+        # Devuelve el detalle real del error para depuración
         raise HTTPException(status_code=500, detail=str(e))
