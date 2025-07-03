@@ -37,6 +37,6 @@ async def editar(payload: Payload):
         )
         img_out = result[0]['generated_image']
         return {'modifiedImage': img_out}
-   except Exception as e:
-        # Con esto verás el error real en Swagger y en los logs
+    except Exception as e:
+        # con esto verás el error real en Swagger y en los logs
         raise HTTPException(status_code=500, detail=str(e))
