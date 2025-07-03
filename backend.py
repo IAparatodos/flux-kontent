@@ -24,7 +24,11 @@ class Payload(BaseModel):
 @app.post('/api/editar-imagen')
 async def editar(payload: Payload):
     prompt = os.getenv('FLUX_PROMPT')
-    img_bytes = base64.b64decode(payload.imageBase64)
+    b64 = payload.imageBase64.strip()
+# añade los '=' que falten para completar a múltiplo de 4
+b64 += "=" * (-len(b64) % 4)
+img_bytes = base64.b64decode(b64)
+
     try:
         result = hf.image_editing(
             model='black-forest-labs/flux-kontext-dev',
