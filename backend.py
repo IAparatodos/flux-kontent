@@ -6,19 +6,22 @@ from huggingface_hub import InferenceClient
 from dotenv import load_dotenv
 import os, base64, io
 
-# Carga las variables de entorno desde .env
+# Carga tus variables de entorno (.env o configuradas en App Platform)
 load_dotenv()
 
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://tudominio.com"],  # ajusta al dominio de tu WP
+    allow_origins=["https://tudominio.com"],  # pon aquí tu dominio WP
     allow_methods=["POST"],
     allow_headers=["*"],
 )
 
-# Inicializa el cliente de HF con tu token
-hf = InferenceClient(token=os.getenv("HF_TOKEN"))
+# Usamos la API de Hugging Face directamente, obligando al proveedor hf-inference
+hf = InferenceClient(
+    token=os.getenv("HF_TOKEN"),
+    provider="hf-inference"
+)
 
 class Payload(BaseModel):
     imageBase64: str
@@ -26,26 +29,26 @@ class Payload(BaseModel):
 @app.post("/api/editar-imagen")
 async def editar(payload: Payload):
     prompt = os.getenv("FLUX_PROMPT")
-    # Limpia padding Base64
+    # Asegura padding correcto del Base64
     b64 = payload.imageBase64.strip()
     b64 += "=" * (-len(b64) % 4)
     img_bytes = base64.b64decode(b64)
 
     try:
-        # Llama al modelo correcto
+        # Llamada image-to-image al modelo FLUX.1-Kontext-dev
         output_img = hf.image_to_image(
             img_bytes,
             prompt=prompt,
             model="black-forest-labs/FLUX.1-Kontext-dev",
             guidance_scale=2.5
-        )  # devuelve un PIL.Image
+        )  # devuelve un objeto PIL.Image
 
-        # Serializa la imagen a Base64 de nuevo
+        # Convierte la PIL.Image a Base64 para enviar al cliente
         buf = io.BytesIO()
         output_img.save(buf, format="PNG")
         mod_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
         return {"modifiedImage": mod_b64}
 
     except Exception as e:
-        # Devuelve el error real en la respuesta
-        raise HTTPException(status_code=500, detail=f"Error interno: {e}")
+        # Devuelve el error real para depuración
+        raise HTTPException(status_code=500, detail=str(e))
