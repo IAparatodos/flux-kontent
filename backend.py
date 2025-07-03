@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from huggingface_hub import InferenceClient
 from dotenv import load_dotenv
-import os, base64
+import os, base64, io
 
 load_dotenv()
 
@@ -29,12 +29,19 @@ async def editar(payload: Payload):
     img_bytes = base64.b64decode(b64)
 
     try:
-        result = hf.image_editing(
+        # usamos image_to_image
+        output_img = hf.image_to_image(
+            img_bytes,
+            prompt=prompt,
             model="black-forest-labs/flux-kontext-dev",
-            inputs=img_bytes,
-            parameters={"prompt": prompt, "guidance_scale": 2.5},
-        )
-        img_out = result[0]["generated_image"]
-        return {"modifiedImage": img_out}
+            guidance_scale=2.5
+        )  # -> PIL.Image
+
+        # serializamos de nuevo a base64
+        buf = io.BytesIO()
+        output_img.save(buf, format="PNG")
+        mod_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+        return {"modifiedImage": mod_b64}
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Error interno: {e}")
