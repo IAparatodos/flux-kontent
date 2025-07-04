@@ -12,7 +12,7 @@ load_dotenv()
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://tudominio.com"],  # ¡IMPORTANTE! Ajusta esto al dominio exacto de tu WordPress
+    allow_origins=["https://www.codigoadria.com/"],  # ¡IMPORTANTE! Ajusta esto al dominio exacto de tu WordPress
     allow_methods=["POST"],
     allow_headers=["*"],
 )
