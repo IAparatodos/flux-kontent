@@ -12,7 +12,7 @@ load_dotenv()
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://www.codigoadria.com"],  # ¡IMPORTANTE! Ajusta esto al dominio exacto de tu WordPress
+    allow_origins=["https://www.codigoadria.com"], # Asegúrate de que este sea tu dominio de WordPress
     allow_methods=["POST"],
     allow_headers=["*"],
 )
@@ -20,20 +20,29 @@ app.add_middleware(
 class Payload(BaseModel):
     imageBase66: str
 
+# Límite de tamaño de archivo en bytes (1MB)
+MAX_FILE_SIZE_BYTES_SERVER = 1 * 1024 * 1024 # 1 MB
+
 @app.post("/api/editar-imagen")
 async def editar(payload: Payload):
     prompt = os.getenv("FLUX_PROMPT")
 
     # EXTRAEMOS LA CADENA BASE64 PURA eliminando el prefijo
     # Por ejemplo, de "data:image/png;base64,iVBORw0..." tomamos solo "iVBORw0..."
-    # Usamos .split(",", 1)[1] para dividir solo por la primera coma y tomar la segunda parte.
-    b66 = payload.imageBase66.split(",", 1)[1].strip()
+    b66_pure = payload.imageBase66.split(",", 1)[1].strip()
 
-    # Asegura padding correcto del Base64 (esto es correcto y debe mantenerse)
-    b66 += "=" * (-len(b66) % 4)
+    # Asegura padding correcto del Base64
+    b66_pure += "=" * (-len(b66_pure) % 4)
     
     try:
-        img_bytes = base64.b64decode(b66) # Ahora 'b66' solo contiene la cadena Base64 pura
+        img_bytes = base64.b64decode(b66_pure) # Decodifica a bytes
+
+        # ¡NUEVA COMPROBACIÓN! Limitar el tamaño del archivo en el servidor
+        if len(img_bytes) > MAX_FILE_SIZE_BYTES_SERVER:
+            raise HTTPException(
+                status_code=413, # 413 Payload Too Large
+                detail=f"El archivo es demasiado grande. El tamaño máximo permitido es 1MB. Tu archivo mide {(len(img_bytes) / (1024 * 1024)):.2f}MB."
+            )
 
         # Replicate necesita la imagen de entrada en Base64 con el prefijo de tipo de dato
         # Lo reconstruimos aquí con los bytes decodificados para asegurarnos de que sea correcto.
@@ -48,7 +57,7 @@ async def editar(payload: Payload):
                 "negative_prompt": "cartoon, painting, illustration, low quality, bad quality, ugly, blurry, deformed",
                 "aspect_ratio": "match_input_image",
                 "prompt_upsampling": False,
-                "output_format": "png" 
+                "output_format": "png"  
             }
         )
         
@@ -61,4 +70,8 @@ async def editar(payload: Payload):
 
     except Exception as e:
         print(f"Error procesando la imagen: {e}")
+        # Si ya es un HTTPException (como el 413), lo relanza. Si no, crea un 500.
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(status_code=500, detail=f"Error al procesar la imagen con Replicate: {str(e)}")
+
