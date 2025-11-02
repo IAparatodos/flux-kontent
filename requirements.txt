@@ -2,5 +2,7 @@ fastapi
 uvicorn[standard]
 python-dotenv
 huggingface-hub
-replicate 
+replicate
 requests
+sqlalchemy
+aiosqlite
