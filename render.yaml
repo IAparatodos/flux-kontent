@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: agenda-videos-adri
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: FLUX_PROMPT
+        value: "your_prompt_here"
+        sync: false
